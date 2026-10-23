@@ -1,8 +1,32 @@
-# 灵活提醒 · Flex Reminder
+# 时宜 · Shiyi
 
 面向小米手机的通用可自定义 Android 提醒应用，提醒内容全部由用户自行添加。
 
-**当前状态：需求与架构规划，尚未实现 App，也没有可安装 APK。**
+原生 Android 本地提醒应用。提醒内容由用户自行添加，时间、日期和数字间隔使用滚轮选择。
+
+**当前状态：首版源代码已实现，构建与完整验收进行中；尚未完成两款目标手机的真机验证。**
+
+## 首版功能
+
+- 今日安排、提醒管理、历史记录、设置与提醒能力检查。
+- 用户自建分类、备注、每日多次、每周指定星期、每 N 天、交替间隔、单次与相对固定日程提醒。
+- 原生滚轮选择 24 小时时间、日期、间隔天数、延后分钟数与重复次数。
+- 提醒增改、复制、暂停、恢复、归档、删除；完成、跳过、延后和单独调整本次时间。
+- 通知快捷操作、有限重复提示、锁屏隐私、开机与时区变化后的调度恢复。
+- 本地数据库、手动备份与预览恢复；恢复前在本机保留原数据备份。
+- 无预置事项、无账号、无网络权限、无系统自动备份。
+
+## 构建与安装
+
+使用 JDK 17 或更高版本、Android SDK 35。Android Studio 打开本目录，同步后运行；命令行执行：
+
+```sh
+./gradlew testDebugUnitTest lintDebug assembleDebug
+```
+
+APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 同时执行上述验证，构建成功后在对应运行的 Artifacts 下载 `shiyi-debug-apk`。
+
+调试包仅用于试用。安装后到“设置”允许通知和准时提醒，检查小米的自启动与省电限制，再发送测试通知和预约锁屏测试。
 
 ## 产品目标
 
@@ -18,8 +42,10 @@
 - [技术方案](docs/architecture.md)：Android 技术选型、可扩展规则、提醒可靠性与数据设计。
 - [开发步骤与验收](docs/roadmap.md)：阶段交付物、测试场景与完成标准。
 
-## 预计技术栈
+## 技术栈与验证
 
-Kotlin、Jetpack Compose、Room、DataStore；AlarmManager 负责需要准时的提醒，WorkManager 负责可延后的维护任务。
+Kotlin 2.0.21、Jetpack Compose、Room 2.6.1、AlarmManager；Android Gradle Plugin 8.7.3、Gradle 8.9、compile/target SDK 35、min SDK 26。
 
-具体 SDK 版本、依赖版本和构建配置在工程阶段根据届时 Android 官方支持情况确定并锁定。本仓库目前不含构建工程，不能运行构建或测试。
+包含规则计算与备份校验单元测试。16 项纯日期规则测试已在开发环境独立编译运行通过；Android 完整构建、备份测试与 Lint 结果以 CI 报告为准。
+
+后续设计与已实现功能的差异见 [开发说明](docs/development.md)，两款小米真机仍需执行 [验收清单](docs/roadmap.md)。
