@@ -28,6 +28,8 @@
 
 APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 同时执行上述验证，构建成功后在对应运行的 Artifacts 下载 `shiyi-debug-apk`。
 
+对外安装包采用固定签名与 `时宜-版本号.apk` 命名。已分发的 0.1.2 作为后续覆盖升级的基准，不把随机签名的 CI 调试包直接发给用户。打包、证书校验和升级规则见[分发说明](docs/distribution.md)。
+
 调试包仅用于试用。安装后到“设置”允许通知和准时提醒，检查小米的自启动与省电限制，再发送测试通知和预约锁屏测试。
 
 ## 产品目标
