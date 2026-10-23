@@ -88,7 +88,7 @@ fun ShiyiRoot(vm: ShiyiViewModel) {
                 else when (tab) {
                     0 -> TodayScreen(data, vm, { editing = "new" }, { tab = 3 })
                     1 -> RemindersScreen(data.reminders, busy, { editing = it }, { editing = "copy:$it" }, vm::toggle, vm::archive, vm::delete, { editing = "new" })
-                    2 -> HistoryScreen(data.occurrences, vm)
+                    2 -> HistoryScreen(data, vm)
                     else -> SettingsScreen(vm, busy)
                 }
             }
@@ -145,23 +145,22 @@ private fun TodayScreen(data: ScreenData, vm: ShiyiViewModel, add: () -> Unit, s
         } else {
             item { SectionTitle("今天的安排") }
             if (todayItems.isEmpty()) item { Text("今天没有安排，享受自己的时间。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(todayItems, key = { it.id }) { OccurrenceCard(it, vm) }
+            items(todayItems, key = { it.id }) { OccurrenceCard(it, vm, data.reminders.firstOrNull { r -> r.id == it.reminderId }) }
         }
         if (older.isNotEmpty()) {
             item { SectionTitle("之前待处理 · ${older.size}") }
-            items(older.take(30), key = { "older:${it.id}" }) { OccurrenceCard(it, vm) }
+            items(older.take(30), key = { "older:${it.id}" }) { OccurrenceCard(it, vm, data.reminders.firstOrNull { r -> r.id == it.reminderId }) }
         }
     }
 }
 
 @Composable
-private fun OccurrenceCard(o: OccurrenceEntity, vm: ShiyiViewModel) {
+private fun OccurrenceCard(o: OccurrenceEntity, vm: ShiyiViewModel, r: ReminderEntity?) {
     val final = o.state == OccurrenceState.DONE || o.state == OccurrenceState.SKIPPED
     var snooze by remember { mutableStateOf(false) }
     var adjustDate by remember { mutableStateOf(false) }
     var adjustTime by remember { mutableStateOf<LocalDate?>(null) }
     var more by remember { mutableStateOf(false) }
-    val r = vm.data.value.reminders.firstOrNull { it.id == o.reminderId }
     val snoozable = r != null && r.enabled && !r.archived && r.revision == o.revision
     val state = when (o.state) {
         OccurrenceState.DONE -> "已完成"
@@ -267,10 +266,10 @@ private fun RemindersScreen(reminders: List<ReminderEntity>, busy: Boolean, edit
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HistoryScreen(occurrences: List<OccurrenceEntity>, vm: ShiyiViewModel) {
+private fun HistoryScreen(data: ScreenData, vm: ShiyiViewModel) {
     var filter by rememberSaveable { mutableStateOf("全部") }
     val states = mapOf("已完成" to setOf(OccurrenceState.DONE), "已跳过" to setOf(OccurrenceState.SKIPPED), "待处理" to setOf(OccurrenceState.MISSED, OccurrenceState.ALERTING))
-    val records = occurrences.filter { it.state != OccurrenceState.PENDING && (filter == "全部" || it.state in states[filter].orEmpty()) }.sortedByDescending { it.plannedAt }
+    val records = data.occurrences.filter { it.state != OccurrenceState.PENDING && (filter == "全部" || it.state in states[filter].orEmpty()) }.sortedByDescending { it.plannedAt }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -281,7 +280,7 @@ private fun HistoryScreen(occurrences: List<OccurrenceEntity>, vm: ShiyiViewMode
         if (records.isEmpty()) item { EmptyState("这里会留下你的记录", "提醒发生后，可以确认完成、延后或跳过。") }
         items(records.take(500), key = { it.id }) { o ->
             Text(formatAt(o.plannedAt, "yyyy 年 M 月 d 日"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OccurrenceCard(o, vm)
+            OccurrenceCard(o, vm, data.reminders.firstOrNull { it.id == o.reminderId })
         }
         if (records.size > 500) item { Text("显示最近 500 条；完整记录可通过备份导出。", style = MaterialTheme.typography.bodySmall) }
     }

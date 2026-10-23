@@ -7,7 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,11 +68,11 @@ fun EditorScreen(existing: ReminderEntity?, busy: Boolean, onBack: () -> Unit, o
         schedule != initial || privacy != (existing?.privateOnLockscreen ?: true) || snooze != (existing?.snoozeMinutes ?: 10) ||
         repeat != (existing?.repeatCount ?: 0) || repeatMinutes != (existing?.repeatMinutes ?: 10)
     val goBack = { if (changed) exitConfirm = true else onBack() }
-    BackHandler(enabled = !busy) { goBack() }
+    BackHandler { if (!busy) goBack() }
 
     Scaffold(topBar = {
         TopAppBar(title = { Text(if (existing == null) "添加提醒" else "编辑提醒") },
-            navigationIcon = { IconButton(onClick = { if (!busy) goBack() }) { Icon(Icons.Default.ArrowBack, "返回") } },
+            navigationIcon = { IconButton(onClick = { if (!busy) goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
             actions = { TextButton(enabled = !busy, onClick = {
                 try {
                     require(!relative || anchorName.isNotBlank()) { "请填写参照日程名称" }

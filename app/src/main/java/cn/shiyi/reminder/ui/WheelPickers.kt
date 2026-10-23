@@ -1,7 +1,7 @@
 package cn.shiyi.reminder.ui
 
-import android.graphics.Color
 import android.os.Build
+import android.util.TypedValue
 import android.view.ViewGroup
 import android.widget.NumberPicker
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,7 +48,7 @@ private fun Wheel(value: Int, range: IntRange, label: String, pad: Boolean = fal
                 picker.value = value.coerceIn(range)
                 if (Build.VERSION.SDK_INT >= 29) {
                     picker.textColor = color
-                    picker.textSize = 22f * picker.resources.displayMetrics.scaledDensity
+                    picker.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 22f, picker.resources.displayMetrics)
                     picker.selectionDividerHeight = 2
                 }
                 picker.setOnValueChangedListener { _, _, next -> onValue(next) }

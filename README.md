@@ -46,6 +46,6 @@ APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 同时
 
 Kotlin 2.0.21、Jetpack Compose、Room 2.6.1、AlarmManager；Android Gradle Plugin 8.7.3、Gradle 8.9、compile/target SDK 35、min SDK 26。
 
-包含规则计算与备份校验单元测试。16 项纯日期规则测试已在开发环境独立编译运行通过；Android 完整构建、备份测试与 Lint 结果以 CI 报告为准。
+包含规则计算与备份校验单元测试。22 项规则与备份测试已在开发环境独立编译运行通过；Android 完整构建与 Lint 结果以 CI 报告为准。
 
 后续设计与已实现功能的差异见 [开发说明](docs/development.md)，两款小米真机仍需执行 [验收清单](docs/roadmap.md)。
