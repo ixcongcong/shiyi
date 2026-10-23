@@ -37,6 +37,7 @@ class ShiyiViewModel(application: Application) : AndroidViewModel(application) {
     val busy = MutableStateFlow(false)
     val importPreview = MutableStateFlow<ImportPreview?>(null)
     val permissionVersion = MutableStateFlow(0)
+    val diagnosticText = MutableStateFlow("")
 
     fun message(text: String) { viewModelScope.launch { messages.send(text) } }
 
@@ -56,8 +57,16 @@ class ShiyiViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         permissionVersion.value++
-        work { store.reconcile(rebaseZone = true) }
+        work {
+            app.diagnostics.record("应用打开", "检查并恢复后续提醒")
+            store.reconcile(rebaseZone = true)
+        }
     }
+    fun setStrongReminders(enabled: Boolean) = work("提醒方式已更新") {
+        bridge.useAlarmClock = enabled
+        store.reconcile()
+    }
+    fun loadDiagnostics() = work { diagnosticText.value = app.diagnostics.report() }
     fun save(reminder: ReminderEntity, after: () -> Unit) = work("提醒已保存", after) { store.save(reminder) }
     fun toggle(id: String) = work { store.toggle(id) }
     fun archive(id: String) = work("已更新归档状态") { store.archive(id) }

@@ -23,9 +23,13 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-class AlarmBridge(private val context: Context) {
+class AlarmBridge(private val context: Context, val diagnostics: ReminderDiagnostics = ReminderDiagnostics(context)) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
     private val notifications = context.getSystemService(NotificationManager::class.java)
+    private val preferences = context.getSharedPreferences("reminder_settings", Context.MODE_PRIVATE)
+    var useAlarmClock: Boolean
+        get() = preferences.getBoolean("alarm_clock", true)
+        set(value) { preferences.edit().putBoolean("alarm_clock", value).commit() }
 
     init {
         notifications.createNotificationChannel(NotificationChannel(CHANNEL, "事项提醒", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -45,13 +49,24 @@ class AlarmBridge(private val context: Context) {
         Intent(context, ReminderReceiver::class.java).setAction(TICK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     fun schedule(time: Long?) {
-        if (time == null) { alarms.cancel(alarmIntent()); return }
+        if (time == null) { alarms.cancel(alarmIntent()); diagnostics.record("闹钟取消", "无待发安排"); return }
         val at = maxOf(time, System.currentTimeMillis() + 1000)
         try {
-            if (canExact()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
-            else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
+            val mode = when {
+                canExact() && useAlarmClock -> {
+                    val show = PendingIntent.getActivity(context, 1,
+                        Intent(context, MainActivity::class.java).setAction("cn.shiyi.SHOW_ALARM"),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                    alarms.setAlarmClock(AlarmManager.AlarmClockInfo(at, show), alarmIntent())
+                    "加强锁屏（系统闹钟）"
+                }
+                canExact() -> { alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent()); "精确提醒" }
+                else -> { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent()); "非精确提醒，可能延迟" }
+            }
+            diagnostics.record("闹钟预约", "${ReminderDiagnostics.formatTime(at)} · $mode")
         } catch (_: SecurityException) {
             alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
+            diagnostics.record("闹钟降级", "${ReminderDiagnostics.formatTime(at)} · 精确权限不可用，可能延迟")
         }
     }
 
@@ -74,10 +89,15 @@ class AlarmBridge(private val context: Context) {
             .setContentIntent(open).setAutoCancel(false)
             .setVisibility(if (r.privateOnLockscreen) NotificationCompat.VISIBILITY_PRIVATE else NotificationCompat.VISIBILITY_PUBLIC)
             .setPublicVersion(public).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .addAction(0, "完成", action(o.id, DONE))
             .addAction(0, "延后 ${r.snoozeMinutes} 分钟", action(o.id, SNOOZE))
             .addAction(0, "跳过", action(o.id, SKIP)).build()
-        return try { notifications.notify(o.id.toString(), 1, notification); true } catch (_: SecurityException) { false }
+        return try {
+            notifications.notify(o.id.toString(), 1, notification)
+            diagnostics.record("通知提交", "计划 ${ReminderDiagnostics.formatTime(o.ringAt)} · 延迟 ${maxOf(0, System.currentTimeMillis() - o.ringAt) / 1000} 秒")
+            true
+        } catch (_: SecurityException) { diagnostics.record("通知失败", "通知权限被撤销"); false }
     }
 
     fun cancel(id: Long) = notifications.cancel(id.toString(), 1)

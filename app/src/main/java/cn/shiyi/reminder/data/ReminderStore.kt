@@ -110,17 +110,6 @@ class ReminderStore(val database: ShiyiDatabase, val bridge: AlarmBridge) {
                     }
                 }
             }
-            // Bound the future plan; no separate OS alarm per reminder or time slot.
-            reminders.values.filter { it.enabled && !it.archived }.forEach { r ->
-                ScheduleEngine.next(r.schedule(), now, zone, 32).forEach { p ->
-                    val ms = p.instant.toEpochMilli()
-                    dao.insert(OccurrenceEntity(
-                        occurrenceKey = "${r.id}:${r.revision}:${p.anchorDate}:${p.slot}", reminderId = r.id,
-                        revision = r.revision, anchorDate = p.anchorDate.toString(), slot = p.slot,
-                        title = r.title, note = r.note, plannedAt = ms, ringAt = ms, zone = zone.id,
-                    ))
-                }
-            }
             dao.scheduled().filter { it.ringAt <= nowMs }.forEach { o ->
                 val r = reminders[o.reminderId]
                 if (r == null || !r.enabled || r.archived || o.revision != r.revision) {
@@ -134,6 +123,18 @@ class ReminderStore(val database: ShiyiDatabase, val bridge: AlarmBridge) {
                     dao.update(o.copy(state = OccurrenceState.ALERTING, notifiedAt = nowMs, attempts = attempts, ringAt = retry))
                 } else {
                     dao.update(o.copy(state = OccurrenceState.MISSED, ringAt = 0, detail = "通知未获允许，请检查权限或通知渠道"))
+                }
+            }
+            // Deliver due work before generating the future window: lockscreen callbacks are time bounded.
+            // Bound the future plan; no separate OS alarm per reminder or time slot.
+            reminders.values.filter { it.enabled && !it.archived }.forEach { r ->
+                ScheduleEngine.next(r.schedule(), now, zone, 32).forEach { p ->
+                    val ms = p.instant.toEpochMilli()
+                    dao.insert(OccurrenceEntity(
+                        occurrenceKey = "${r.id}:${r.revision}:${p.anchorDate}:${p.slot}", reminderId = r.id,
+                        revision = r.revision, anchorDate = p.anchorDate.toString(), slot = p.slot,
+                        title = r.title, note = r.note, plannedAt = ms, ringAt = ms, zone = zone.id,
+                    ))
                 }
             }
             dao.pruneCancelled()

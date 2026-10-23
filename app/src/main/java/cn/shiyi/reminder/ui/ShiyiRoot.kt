@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +22,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -292,15 +295,21 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
     val version by vm.permissionVersion.collectAsStateWithLifecycle()
     val canNotify = remember(version) { vm.bridge.canNotify() }
     val canExact = remember(version) { vm.bridge.canExact() }
+    val strong = remember(version) { vm.bridge.useAlarmClock }
+    val power = remember { context.getSystemService(PowerManager::class.java) }
+    val ignored = remember(version) { power.isIgnoringBatteryOptimizations(context.packageName) }
+    val diagnosticText by vm.diagnosticText.collectAsStateWithLifecycle()
+    val clipboard = LocalClipboardManager.current
+    var showDiagnostics by remember { mutableStateOf(false) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.refresh() }
     var exportRecovery by remember { mutableStateOf(false) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { if (it != null) vm.export(it, exportRecovery) }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { if (it != null) vm.inspectImport(it) }
     var showExport by remember { mutableStateOf(false) }
     fun open(intent: Intent) {
-        try { context.startActivity(intent) } catch (_: ActivityNotFoundException) {
+        try { context.startActivity(intent) } catch (_: RuntimeException) {
             try { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
-            catch (_: ActivityNotFoundException) { vm.message("请在手机设置中打开时宜的应用设置") }
+            catch (_: RuntimeException) { vm.message("请在手机设置中打开时宜的应用设置") }
         }
     }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -323,17 +332,40 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
             if (Build.VERSION.SDK_INT >= 31) open(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
             else vm.message("当前系统无需单独授权精确提醒")
         } }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("加强锁屏提醒", fontWeight = FontWeight.SemiBold)
+                    Text("使用系统闹钟调度，可能显示闹钟图标；需允许准时提醒。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(strong, { vm.setStrongReminders(it) }, enabled = !busy)
+            }
+        }
         item { SettingLine("声音、振动与锁屏展示", "系统设置") {
             open(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID, AlarmBridge.CHANNEL))
         } }
-        item { SettingLine("自启动与省电限制", "需手动检查") { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) } }
+        item { SettingLine("系统电池优化", if (ignored) "已豁免" else "去检查") { open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
+        item { SettingLine("小米自启动与省电策略", "需手动检查") {
+            val xiaomi = Build.MANUFACTURER.lowercase() in setOf("xiaomi", "redmi", "poco")
+            if (xiaomi) open(Intent().setClassName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"))
+            else open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+        } }
         item {
-            Text("小米 HyperOS：在应用设置中允许自启动，并检查省电策略、锁屏通知和勿扰模式。入口名称可能随版本变化。\n\n系统强行停止应用或关闭通知后，提醒可能中断；重新打开时宜会恢复后续安排。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("小米 HyperOS：允许时宜自启动，并在应用详情的省电策略中选择“无限制”。如系统电池优化列表中可找到时宜，将其设为不优化。同时检查锁屏通知与勿扰模式。入口名称可能随版本变化。\n\n加强锁屏提醒也不能绕过系统强行停止或关闭通知。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(enabled = !busy, onClick = { vm.message(if (vm.bridge.test()) "已提交测试通知，请检查实际展示与声音" else "通知未获允许，请先检查权限和渠道") }) { Text("测试通知") }
                 OutlinedButton(enabled = !busy, onClick = { vm.scheduleLockTest() }) { Text("预约锁屏测试") }
+            }
+        }
+        item { SettingLine("锁屏提醒诊断", "查看或复制时间记录") { if (!busy) { vm.loadDiagnostics(); showDiagnostics = true } } }
+        if (showDiagnostics) item {
+            Text(diagnosticText.ifBlank { "正在读取…" }, style = MaterialTheme.typography.bodySmall)
+            Row {
+                TextButton(onClick = vm::loadDiagnostics, enabled = !busy) { Text("刷新") }
+                TextButton(onClick = { clipboard.setText(AnnotatedString(diagnosticText)); vm.message("诊断记录已复制") }, enabled = diagnosticText.isNotBlank()) { Text("复制记录") }
+                TextButton(onClick = { showDiagnostics = false }) { Text("收起") }
             }
         }
         item { SectionTitle("数据与隐私") }
@@ -342,7 +374,7 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
         if (vm.hasRecovery()) item { SettingLine("恢复前的原数据", "导出备份") { if (!busy) { exportRecovery = true; showExport = true } } }
         item { Text("内容只保存在本机，应用不申请网络权限，也不启用系统自动备份。手动备份为明文文件，包含提醒与记录；请保存在可信位置。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item { SectionTitle("关于时宜") }
-        item { Text("时宜 0.1.0 · 本地试用版\n所有事项由你自行添加，时间使用 24 小时制滚轮。\n目标适配小米 17 Pro Max、小米 17 Ultra 徕卡版，实际表现需真机验证。", style = MaterialTheme.typography.bodyMedium) }
+        item { Text("时宜 0.1.1 · 本地试用版\n所有事项由你自行添加，时间使用 24 小时制滚轮。\n目标适配小米 17 Pro Max、小米 17 Ultra 徕卡版，实际表现需真机验证。", style = MaterialTheme.typography.bodyMedium) }
         item { Spacer(Modifier.height(24.dp)) }
     }
     if (showExport) AlertDialog(onDismissRequest = { showExport = false }, title = { Text("导出明文备份") }, text = { Text("文件将包含提醒名称、备注和历史记录。请选择可信的保存位置。") },
