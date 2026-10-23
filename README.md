@@ -6,7 +6,7 @@
 
 **当前状态：首版源代码已实现，构建与完整验收进行中；尚未完成两款目标手机的真机验证。**
 
-0.1.1 针对“锁屏时不提醒，解锁后才出现”的反馈补充短时 CPU 唤醒保护、加强锁屏调度与本地诊断。变更、测试步骤与升级备份说明见 [锁屏修复说明](docs/lockscreen-fix.md)。
+0.1.2 将奶油浅色、雾粉与淡紫的新版界面和锁屏修复合并发布；可选择柔雾深色或跟随系统。针对“锁屏时不提醒，解锁后才出现”的反馈补充短时 CPU 唤醒保护、加强锁屏调度与本地诊断。变更、测试步骤与升级备份说明见 [锁屏修复说明](docs/lockscreen-fix.md)。
 
 ## 首版功能
 
@@ -48,6 +48,6 @@ APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 同时
 
 Kotlin 2.0.21、Jetpack Compose、Room 2.6.1、AlarmManager；Android Gradle Plugin 8.7.3、Gradle 8.9、compile/target SDK 35、min SDK 26。
 
-包含规则计算与备份校验单元测试。22 项规则与备份测试已在开发环境独立编译运行通过；Android 完整构建与 Lint 结果以 CI 报告为准。
+包含 22 项规则与备份测试，以及 7 项锁屏调度与唤醒保护的 Android 框架模拟测试。锁屏修复版的 29 项测试与 Lint 已通过；最新界面版本的结果以 CI 报告为准。框架模拟通过不代表小米真机已通过。
 
 后续设计与已实现功能的差异见 [开发说明](docs/development.md)，两款小米真机仍需执行 [验收清单](docs/roadmap.md)。

@@ -1,6 +1,7 @@
 package cn.shiyi.reminder.ui
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -38,6 +39,13 @@ class ShiyiViewModel(application: Application) : AndroidViewModel(application) {
     val importPreview = MutableStateFlow<ImportPreview?>(null)
     val permissionVersion = MutableStateFlow(0)
     val diagnosticText = MutableStateFlow("")
+    private val appearance = app.getSharedPreferences("appearance", Context.MODE_PRIVATE)
+    val themeMode = MutableStateFlow(appearance.getString("theme", "light") ?: "light")
+    fun setTheme(mode: String) {
+        if (mode !in setOf("light", "dark", "system")) return
+        appearance.edit().putString("theme", mode).apply()
+        themeMode.value = mode
+    }
 
     fun message(text: String) { viewModelScope.launch { messages.send(text) } }
 

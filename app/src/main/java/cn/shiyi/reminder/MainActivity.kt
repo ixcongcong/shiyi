@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cn.shiyi.reminder.ui.ShiyiRoot
 import cn.shiyi.reminder.ui.ShiyiTheme
 import cn.shiyi.reminder.ui.ShiyiViewModel
@@ -14,7 +16,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { ShiyiTheme { ShiyiRoot(model) } }
+        setContent {
+            val theme by model.themeMode.collectAsStateWithLifecycle()
+            ShiyiTheme(theme) { ShiyiRoot(model) }
+        }
     }
     override fun onResume() { super.onResume(); model.refresh() }
 }

@@ -10,22 +10,29 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cn.shiyi.reminder.data.OccurrenceEntity
 import cn.shiyi.reminder.data.OccurrenceState
@@ -68,21 +75,28 @@ fun ShiyiRoot(vm: ShiyiViewModel) {
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 TopAppBar(title = {
-                    Column {
-                        Text(if (tab == 0) "时宜" else listOf("今日", "提醒", "记录", "设置")[tab], fontWeight = FontWeight.Bold)
-                        if (tab == 0) Text("在合适的时候，记得重要的事", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (tab == 0) Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.AccessTime, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                        Column {
+                            Text(if (tab == 0) "时宜" else listOf("今日", "提醒", "记录", "设置")[tab], style = MaterialTheme.typography.headlineMedium)
+                            if (tab == 0) Text("把日常，过得从容一点", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
             },
             bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     val labels = listOf("今日", "提醒", "记录", "设置")
-                    val icons = listOf(Icons.Default.Today, Icons.Default.NotificationsNone, Icons.Default.History, Icons.Default.Tune)
-                    labels.forEachIndexed { index, label -> NavigationBarItem(selected = tab == index, onClick = { tab = index }, icon = { Icon(icons[index], null) }, label = { Text(label) }) }
+                    val icons = listOf(Icons.Rounded.Today, Icons.Rounded.NotificationsNone, Icons.Rounded.History, Icons.Rounded.Tune)
+                    labels.forEachIndexed { index, label -> NavigationBarItem(selected = tab == index, onClick = { tab = index }, icon = { Icon(icons[index], null) }, label = { Text(label) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer)) }
                 }
             },
             floatingActionButton = {
-                if (tab < 2) ExtendedFloatingActionButton(onClick = { editing = "new" }, icon = { Icon(Icons.Default.Add, null) }, text = { Text("添加提醒") })
+                if (tab < 2) ExtendedFloatingActionButton(onClick = { editing = "new" }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("添加提醒") },
+                    shape = CircleShape, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
             },
             containerColor = MaterialTheme.colorScheme.background,
         ) { padding ->
@@ -119,7 +133,16 @@ private fun TodayScreen(data: ScreenData, vm: ShiyiViewModel, add: () -> Unit, s
     val exact = remember(version) { vm.bridge.canExact() }
     LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 104.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Text(today.format(DateTimeFormatter.ofPattern("M 月 d 日 · EEEE", Locale.CHINA)), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(today.format(DateTimeFormatter.ofPattern("M 月 d 日 · EEEE", Locale.CHINA)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.weight(1f))
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Spa, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                        Text("属于你的节奏", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                }
+            }
         }
         if (!canNotify || !exact) item {
             Surface(onClick = settings, color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large) {
@@ -134,25 +157,52 @@ private fun TodayScreen(data: ScreenData, vm: ShiyiViewModel, add: () -> Unit, s
             }
         }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = MaterialTheme.shapes.extraLarge) {
-                Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("今日 ${todayItems.count { it.state == OccurrenceState.DONE }} / ${todayItems.size} 已完成", style = MaterialTheme.typography.labelLarge)
-                    Text(if (next == null) "给每一天，留一点从容" else formatAt(next.ringAt, "HH:mm"), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text(next?.let { "下一项 · ${it.title}" } ?: if (data.reminders.isEmpty()) "从添加第一项提醒开始" else "暂时没有待发提醒", style = MaterialTheme.typography.bodyLarge)
-                    if (next != null) Text(formatAt(next.ringAt, "M 月 d 日 EEEE"), style = MaterialTheme.typography.bodySmall)
-                }
-            }
+            NextReminderCard(next, todayItems.count { it.state == OccurrenceState.DONE }, todayItems.size)
         }
         if (data.reminders.none { !it.archived }) item {
             EmptyState("把想记住的事放在这里", "自由设置时间和频率，时宜会在合适的时候提醒你。", "添加第一项提醒", add)
         } else {
-            item { SectionTitle("今天的安排") }
+            item { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.weight(1f)) { SectionTitle("今天的安排") }; Text("${todayItems.size} 项小事", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             if (todayItems.isEmpty()) item { Text("今天没有安排，享受自己的时间。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(todayItems, key = { it.id }) { OccurrenceCard(it, vm, data.reminders.firstOrNull { r -> r.id == it.reminderId }) }
         }
         if (older.isNotEmpty()) {
             item { SectionTitle("之前待处理 · ${older.size}") }
             items(older.take(30), key = { "older:${it.id}" }) { OccurrenceCard(it, vm, data.reminders.firstOrNull { r -> r.id == it.reminderId }) }
+        }
+    }
+}
+
+@Composable
+private fun NextReminderCard(next: OccurrenceEntity?, completed: Int, total: Int) {
+    val colors = MaterialTheme.colorScheme
+    Surface(shape = MaterialTheme.shapes.extraLarge, color = colors.primaryContainer) {
+        Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(colors.primaryContainer, colors.secondaryContainer)))) {
+            Canvas(Modifier.matchParentSize()) {
+                drawCircle(colors.onPrimaryContainer.copy(alpha = 0.035f), size.width * 0.39f, Offset(size.width, size.height * 0.1f))
+                drawCircle(colors.onPrimaryContainer.copy(alpha = 0.035f), size.width * 0.24f, Offset(size.width * 0.9f, size.height))
+            }
+            Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(if (next != null) "接下来的一件小事" else "给自己一点从容", style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer)
+                        Text("今日完成 $completed / $total", style = MaterialTheme.typography.bodySmall, color = colors.onPrimaryContainer.copy(alpha = 0.8f))
+                    }
+                    Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(progress = { if (total == 0) 0f else completed.toFloat() / total }, modifier = Modifier.fillMaxSize(), strokeWidth = 3.dp, color = colors.primary, trackColor = colors.primary.copy(alpha = 0.12f))
+                        Icon(if (total > 0 && completed == total) Icons.Rounded.Check else Icons.Rounded.FavoriteBorder, null, Modifier.size(19.dp), tint = colors.primary)
+                    }
+                }
+                Text(next?.let { formatAt(it.ringAt, "HH:mm") } ?: "把小事，温柔记好", fontSize = if (next == null) 26.sp else 52.sp,
+                    lineHeight = if (next == null) 36.sp else 60.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimaryContainer)
+                if (next != null) {
+                    Text(next.title, style = MaterialTheme.typography.titleLarge, color = colors.onPrimaryContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Rounded.Event, null, Modifier.size(16.dp), tint = colors.onPrimaryContainer)
+                        Text(formatAt(next.ringAt, "M 月 d 日 EEEE"), style = MaterialTheme.typography.bodySmall, color = colors.onPrimaryContainer)
+                    }
+                } else Text("暂时没有待发提醒，按自己的节奏来。", style = MaterialTheme.typography.bodyMedium, color = colors.onPrimaryContainer)
+            }
         }
     }
 }
@@ -173,12 +223,18 @@ private fun OccurrenceCard(o: OccurrenceEntity, vm: ShiyiViewModel, r: ReminderE
         else -> if (o.actionAt != null) "已延后" else "待提醒"
     }
     val busy by vm.busy.collectAsStateWithLifecycle()
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(36.dp).background(if (final) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(if (o.state == OccurrenceState.DONE) Icons.Rounded.Check else Icons.Rounded.NotificationsNone, null, Modifier.size(19.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.width(10.dp))
                 Text(formatAt(o.plannedAt, "HH:mm"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
-                Text(state, color = if (o.state == OccurrenceState.DONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                Surface(shape = CircleShape, color = if (final) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)) {
+                    Text(state, Modifier.padding(horizontal = 10.dp, vertical = 5.dp), color = if (o.state == OccurrenceState.DONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                }
             }
             Text(o.title, style = MaterialTheme.typography.titleMedium)
             if (o.note.isNotBlank()) Text(o.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -186,7 +242,7 @@ private fun OccurrenceCard(o: OccurrenceEntity, vm: ShiyiViewModel, r: ReminderE
             if (o.detail.isNotEmpty() && o.state == OccurrenceState.MISSED) Text(o.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             if (final && o.actionAt != null) Text("${formatAt(o.actionAt, "M-d HH:mm")} ${if (o.state == OccurrenceState.DONE) "确认完成" else "跳过"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!final) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilledTonalButton(enabled = !busy, onClick = { vm.act(o.id, AlarmBridge.DONE) }) { Icon(Icons.Default.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("完成") }
+                FilledTonalButton(enabled = !busy, shape = CircleShape, onClick = { vm.act(o.id, AlarmBridge.DONE) }) { Icon(Icons.Default.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("完成") }
                 if (snoozable) TextButton(enabled = !busy, onClick = { snooze = true }) { Text("延后") }
                 TextButton(enabled = !busy, onClick = { vm.act(o.id, AlarmBridge.SKIP) }) { Text("跳过") }
                 if (snoozable) Box {
@@ -306,6 +362,8 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { if (it != null) vm.export(it, exportRecovery) }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { if (it != null) vm.inspectImport(it) }
     var showExport by remember { mutableStateOf(false) }
+    var showAppearance by remember { mutableStateOf(false) }
+    val themeMode by vm.themeMode.collectAsStateWithLifecycle()
     fun open(intent: Intent) {
         try { context.startActivity(intent) } catch (_: RuntimeException) {
             try { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
@@ -322,6 +380,8 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
                 }
             }
         }
+        item { SectionTitle("外观") }
+        item { SettingLine("界面风格", when (themeMode) { "dark" -> "柔雾深色"; "system" -> "跟随系统"; else -> "奶油浅色" }) { showAppearance = true } }
         item { SectionTitle("提醒检查") }
         item { SettingLine("通知权限与渠道", if (canNotify) "已允许" else "需要开启") {
             if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
@@ -374,9 +434,18 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
         if (vm.hasRecovery()) item { SettingLine("恢复前的原数据", "导出备份") { if (!busy) { exportRecovery = true; showExport = true } } }
         item { Text("内容只保存在本机，应用不申请网络权限，也不启用系统自动备份。手动备份为明文文件，包含提醒与记录；请保存在可信位置。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item { SectionTitle("关于时宜") }
-        item { Text("时宜 0.1.1 · 本地试用版\n所有事项由你自行添加，时间使用 24 小时制滚轮。\n目标适配小米 17 Pro Max、小米 17 Ultra 徕卡版，实际表现需真机验证。", style = MaterialTheme.typography.bodyMedium) }
+        item { Text("时宜 0.1.2 · 本地试用版\n所有事项由你自行添加，时间使用 24 小时制滚轮。\n目标适配小米 17 Pro Max、小米 17 Ultra 徕卡版，实际表现需真机验证。", style = MaterialTheme.typography.bodyMedium) }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    if (showAppearance) AlertDialog(onDismissRequest = { showAppearance = false }, title = { Text("选一种喜欢的风格") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("light" to "奶油浅色", "dark" to "柔雾深色", "system" to "跟随系统").forEach { (mode, label) ->
+                OutlinedButton(onClick = { vm.setTheme(mode); showAppearance = false }, Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                    Icon(if (mode == themeMode) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp)); Text(label)
+                }
+            }
+        } }, confirmButton = { TextButton(onClick = { showAppearance = false }) { Text("关闭") } })
     if (showExport) AlertDialog(onDismissRequest = { showExport = false }, title = { Text("导出明文备份") }, text = { Text("文件将包含提醒名称、备注和历史记录。请选择可信的保存位置。") },
         confirmButton = { TextButton(onClick = { showExport = false; export.launch(if (exportRecovery) "shiyi-before-restore.json" else "shiyi-${LocalDate.now()}.json") }) { Text("选择保存位置") } },
         dismissButton = { TextButton(onClick = { showExport = false }) { Text("取消") } })
@@ -386,7 +455,7 @@ private fun SettingsScreen(vm: ShiyiViewModel, busy: Boolean) {
 private fun EmptyState(title: String, description: String, action: String? = null, onAction: () -> Unit = {}) {
     Column(Modifier.fillMaxWidth().padding(vertical = 34.dp, horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.NotificationsNone, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Rounded.Spa, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
         }
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
