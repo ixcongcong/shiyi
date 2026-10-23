@@ -28,6 +28,8 @@ interface ReminderDao {
     suspend fun occurrences(): List<OccurrenceEntity>
     @Query("SELECT * FROM occurrences WHERE reminderId = :reminderId AND state IN ('PENDING', 'ALERTING')")
     suspend fun activeFor(reminderId: String): List<OccurrenceEntity>
+    @Query("SELECT occurrenceKey FROM occurrences WHERE reminderId = :reminderId AND revision = :revision")
+    suspend fun occurrenceKeys(reminderId: String, revision: Int): List<String>
     @Query("SELECT * FROM occurrences WHERE state = 'PENDING' OR (state = 'ALERTING' AND ringAt > 0)")
     suspend fun scheduled(): List<OccurrenceEntity>
     @Insert(onConflict = OnConflictStrategy.IGNORE)

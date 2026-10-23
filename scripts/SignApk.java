@@ -27,9 +27,9 @@ public class SignApk {
             .setMinSdkVersion(26).setV1SigningEnabled(true).setV2SigningEnabled(true).setV3SigningEnabled(true).build().sign();
         var result = new ApkVerifier.Builder(new File(args[1])).build().verify();
         if (!result.isVerified()) throw new IllegalStateException("APK verification failed: " + result.getErrors());
-        if (!Arrays.equals(chain.getFirst().getEncoded(), result.getSignerCertificates().getFirst().getEncoded()))
+        if (!Arrays.equals(chain.get(0).getEncoded(), result.getSignerCertificates().get(0).getEncoded()))
             throw new IllegalStateException("Signer certificate mismatch");
         System.out.println("APK signatures verified. Certificate SHA256: " + HexFormat.of().formatHex(
-            MessageDigest.getInstance("SHA-256").digest(chain.getFirst().getEncoded())));
+            MessageDigest.getInstance("SHA-256").digest(chain.get(0).getEncoded())));
     }
 }

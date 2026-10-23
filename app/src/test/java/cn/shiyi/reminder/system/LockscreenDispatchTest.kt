@@ -11,6 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowPowerManager
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -19,7 +20,7 @@ class LockscreenDispatchTest {
 
     @Test fun enhancedModeRegistersUserVisibleSystemAlarm() {
         val manager = context.getSystemService(AlarmManager::class.java)
-        shadowOf(manager).setCanScheduleExactAlarms(true)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val bridge = AlarmBridge(context)
         val at = System.currentTimeMillis() + 120_000
         bridge.schedule(at)
@@ -30,7 +31,7 @@ class LockscreenDispatchTest {
 
     @Test fun replacingAndCancellingLeavesOnlyTheCurrentAlarm() {
         val manager = context.getSystemService(AlarmManager::class.java)
-        shadowOf(manager).setCanScheduleExactAlarms(true)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val bridge = AlarmBridge(context)
         val at = System.currentTimeMillis() + 120_000
         bridge.schedule(at)
@@ -44,7 +45,7 @@ class LockscreenDispatchTest {
 
     @Test fun revokedExactPermissionUsesVisibleDegradedMode() {
         val manager = context.getSystemService(AlarmManager::class.java)
-        shadowOf(manager).setCanScheduleExactAlarms(false)
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
         val bridge = AlarmBridge(context)
         bridge.schedule(System.currentTimeMillis() + 120_000)
         assertNull(manager.nextAlarmClock)
@@ -54,7 +55,7 @@ class LockscreenDispatchTest {
 
     @Test fun disablingEnhancedModeKeepsAnExactWakeupAlarm() {
         val manager = context.getSystemService(AlarmManager::class.java)
-        shadowOf(manager).setCanScheduleExactAlarms(true)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val bridge = AlarmBridge(context)
         bridge.useAlarmClock = false
         bridge.schedule(System.currentTimeMillis() + 120_000)

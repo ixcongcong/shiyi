@@ -128,10 +128,13 @@ class ReminderStore(val database: ShiyiDatabase, val bridge: AlarmBridge) {
             // Deliver due work before generating the future window: lockscreen callbacks are time bounded.
             // Bound the future plan; no separate OS alarm per reminder or time slot.
             reminders.values.filter { it.enabled && !it.archived }.forEach { r ->
+                val existing = dao.occurrenceKeys(r.id, r.revision).toHashSet()
                 ScheduleEngine.next(r.schedule(), now, zone, 32).forEach { p ->
+                    val key = "${r.id}:${r.revision}:${p.anchorDate}:${p.slot}"
+                    if (key in existing) return@forEach
                     val ms = p.instant.toEpochMilli()
                     dao.insert(OccurrenceEntity(
-                        occurrenceKey = "${r.id}:${r.revision}:${p.anchorDate}:${p.slot}", reminderId = r.id,
+                        occurrenceKey = key, reminderId = r.id,
                         revision = r.revision, anchorDate = p.anchorDate.toString(), slot = p.slot,
                         title = r.title, note = r.note, plannedAt = ms, ringAt = ms, zone = zone.id,
                     ))
