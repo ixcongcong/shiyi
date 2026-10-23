@@ -1,0 +1,17 @@
+# Local Android / IDE state
+.idea/
+*.iml
+.gradle/
+local.properties
+**/build/
+.DS_Store
+
+# Credentials, signing material and personal exports
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore.properties
+backups/
+exports/
